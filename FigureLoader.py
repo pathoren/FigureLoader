@@ -13,6 +13,38 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import SpanSelector
 # matplotlib.use('Qt4Agg')
 
+import matplotlib.colors as colors
+cv = colors.ColorConverter()
+white_level = 0.2
+w_rgb = cv.to_rgb('w')
+b_rgb = cv.to_rgb('b')
+r_rgb = cv.to_rgb('r')
+y_rgb = cv.to_rgb('y')
+g_rgb = cv.to_rgb('g')
+m_rgb = cv.to_rgb('m')
+c_rgb = cv.to_rgb('c')
+
+# Create color maps
+cmaps0 = dict()
+cmaps0['b'] = colors.LinearSegmentedColormap.from_list('', [w_rgb, b_rgb])
+cmaps0['r'] = colors.LinearSegmentedColormap.from_list('', [w_rgb, r_rgb])
+cmaps0['y'] = colors.LinearSegmentedColormap.from_list('', [w_rgb, y_rgb])
+cmaps0['g'] = colors.LinearSegmentedColormap.from_list('', [w_rgb, g_rgb])
+cmaps0['m'] = colors.LinearSegmentedColormap.from_list('', [w_rgb, m_rgb])
+cmaps0['c'] = colors.LinearSegmentedColormap.from_list('', [w_rgb, c_rgb])
+
+# Modifed cmaps
+# Colormaps work only with integer input values, for floats cmap endvalues are returned
+my_cmaps = dict()
+my_cmaps['b'] = colors.LinearSegmentedColormap.from_list('', [cmaps0['b'](int(np.rint(white_level * 255))), b_rgb])
+my_cmaps['r'] = colors.LinearSegmentedColormap.from_list('', [cmaps0['r'](int(np.rint(white_level * 255))), r_rgb])
+my_cmaps['y'] = colors.LinearSegmentedColormap.from_list('', [cmaps0['y'](int(np.rint(white_level * 255))), y_rgb])
+my_cmaps['g'] = colors.LinearSegmentedColormap.from_list('', [cmaps0['g'](int(np.rint(white_level * 255))), g_rgb])
+my_cmaps['m'] = colors.LinearSegmentedColormap.from_list('', [cmaps0['m'](int(np.rint(white_level * 255))), m_rgb])
+my_cmaps['c'] = colors.LinearSegmentedColormap.from_list('', [cmaps0['c'](int(np.rint(white_level * 255))), c_rgb])
+
+
+
 
 class MyDialog(wx.Dialog):
     def __init__(self, parent, id, title):
@@ -323,19 +355,23 @@ class ToolPanel(wx.Panel):
             self.txt_color.SetToolTip(wx.ToolTip(txt))
 
 
-                
+    def get_rgb_from_artist(self, artist, start_color=False):
+        segdata = artist.get_cmap()._segmentdata
+        if start_color: i = 0
+        else: i = 1            
+        r = int(segdata['red'][i][1])
+        g = int(segdata['green'][i][1])
+        b = int(segdata['blue'][i][1])
+        return (r, g, b)
 
     def _SetArtist(self, artist):
         if isinstance(artist, valid_artists[ARTIST_PATH]):
             self._SetColorTooltip(ARTIST_PATH)
-            segdata = artist.get_cmap()._segmentdata
-            r = int(segdata['red'][1][1]*255)
-            g = int(segdata['green'][1][1]*255)
-            b = int(segdata['blue'][1][1]*255)
-            color = '#%02x%02x%02x' % (r,g,b)
+            (r, g, b) = self.get_rgb_from_artist(artist)
+            color = '#%02x%02x%02x' % (r*255, g*255, b*255)
             color = color + ' ({}, {}, {})'.format(r,g,b)
             self.txt_color.SetValue(color)
-            self.txt_color.Disable()
+            # self.txt_color.Disable()
             print 'implement this'
         elif isinstance(artist, valid_artists[ARTIST_LINE2D]):
             self.txt_color.SetValue(artist.get_color())
@@ -343,14 +379,14 @@ class ToolPanel(wx.Panel):
             self.cb_artiststyle.SetValue(artist.get_linestyle())
             self._SetColorTooltip(ARTIST_LINE2D)
             self.txt_name.SetValue(artist.get_label())
-            self.txt_color.Enable()
+            # self.txt_color.Enable()
             
         elif isinstance(artist, valid_artists[ARTIST_IMSHOW]):
             self.txt_color.SetValue(artist.get_cmap().name)
             self.cb_marker.SetValue('')
             self.cb_artiststyle.SetValue('')
             self._SetColorTooltip(ARTIST_IMSHOW)
-            self.txt_color.Enable()
+            # self.txt_color.Enable()
         else:
             print 'Unknown artist.'
 
@@ -512,6 +548,9 @@ class ToolPanel(wx.Panel):
             return
 
         if isinstance(artist, valid_artists[ARTIST_PATH]):
+            col = self.txt_color.GetValue()
+            if self.validate_letter_color(col):
+                self.set_color_path_collection(ax, artist, col)
             print 'implement this'
         elif isinstance(artist, valid_artists[ARTIST_LINE2D]):
             col = self.txt_color.GetValue()
@@ -529,15 +568,32 @@ class ToolPanel(wx.Panel):
             print 'Not valid artist.'
         wx.CallAfter(self.parent.canvas.draw)
 
+
+    def set_color_path_collection(self, ax, artist, color):
+        if not isinstance(artist, valid_artists[ARTIST_PATH]): return
+        x = artist.get_offsets()[:,0] #extract xdata
+        y = artist.get_offsets()[:,1] #extract ydata
+        color_init=cmaps0[color](int(np.rint(white_level * 255)))
+        col = cv.to_rgb(color)
+        cmap = colors.LinearSegmentedColormap.from_list('', [color_init, col])
+        n_points = np.linspace(0, 1, len(x))
+        ax.scatter(x, y, c=n_points, lw=0, cmap=cmap)
+        artist.remove()
+        wx.CallAfter(self.parent.canvas.draw)
+
+
     def _ValidColormap(self, cmap):
         if cmap in valid_cmaps: return True
         else: return False
 
+    def validate_letter_color(self, c):
+        if c in ['b', 'r', 'g', 'y', 'm', 'c', 'k']:
+            return True
+        return False
 
     def ValidateColor(self, c):
         if c.isalpha():
-            if c in ['b', 'r', 'g', 'y', 'm', 'c', 'k']:
-                return True
+            return self.validate_letter_color(c)
         if re.search(r'^#(?:[0-9a-fA-F]{3}){1,2}$', c): #valid hex code?
             return True
         try:
@@ -825,4 +881,10 @@ if __name__ == "__main__":
     for c in cmd:
         frame.panel.shellpanel.shell.run(c)
     frame.Show()
+    try:
+        if os.environ['COMPUTERNAME'] == 'OBIWAN':
+            frame.panel.LoadFigure('test5.p')
+            wx.CallAfter(frame.panel.canvas.draw)
+    except KeyError:
+        pass
     app.MainLoop()
