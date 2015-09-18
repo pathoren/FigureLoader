@@ -358,35 +358,39 @@ class ToolPanel(wx.Panel):
     def get_rgb_from_artist(self, artist, start_color=False):
         segdata = artist.get_cmap()._segmentdata
         if start_color: i = 0
-        else: i = 1            
-        r = int(segdata['red'][i][1])
-        g = int(segdata['green'][i][1])
-        b = int(segdata['blue'][i][1])
+        else: i = 1
+        r = segdata['red'][i][1]
+        g = segdata['green'][i][1]
+        b = segdata['blue'][i][1]
         return (r, g, b)
+
+    def extract_matplotlibcolor_from_rgb(self, rgb):
+        '''rgb = (r, g, b)'''
+        color = [key for key, value in cv.colors.items() if value == rgb][0]
+        return color 
+
+        
+
 
     def _SetArtist(self, artist):
         if isinstance(artist, valid_artists[ARTIST_PATH]):
             self._SetColorTooltip(ARTIST_PATH)
-            (r, g, b) = self.get_rgb_from_artist(artist)
-            color = '#%02x%02x%02x' % (r*255, g*255, b*255)
-            color = color + ' ({}, {}, {})'.format(r,g,b)
+            rgb = self.get_rgb_from_artist(artist)
+            color = self.extract_matplotlibcolor_from_rgb(rgb)
             self.txt_color.SetValue(color)
-            # self.txt_color.Disable()
-            print 'implement this'
+
         elif isinstance(artist, valid_artists[ARTIST_LINE2D]):
             self.txt_color.SetValue(artist.get_color())
             self.cb_marker.SetValue(artist.get_marker())
             self.cb_artiststyle.SetValue(artist.get_linestyle())
             self._SetColorTooltip(ARTIST_LINE2D)
             self.txt_name.SetValue(artist.get_label())
-            # self.txt_color.Enable()
             
         elif isinstance(artist, valid_artists[ARTIST_IMSHOW]):
             self.txt_color.SetValue(artist.get_cmap().name)
             self.cb_marker.SetValue('')
             self.cb_artiststyle.SetValue('')
             self._SetColorTooltip(ARTIST_IMSHOW)
-            # self.txt_color.Enable()
         else:
             print 'Unknown artist.'
 
@@ -410,14 +414,7 @@ class ToolPanel(wx.Panel):
         art, num = self._GetArtists(ax)
         self.cb_artists.Clear()
         if num > 0:
-            for i, item in enumerate(art):
-                if isinstance(item, valid_artists[ARTIST_PATH]):
-                    self.cb_artists.Append('PathCollection {}'.format(i))
-                elif isinstance(item, valid_artists[ARTIST_IMSHOW]):
-                    self.cb_artists.Append('Imshow {}'.format(i))
-                else:                    
-                    self.cb_artists.Append(item.__str__().split('(')[0]+' ['+item.get_color()+']')
-                    # self.cb_artists.GetItems()[-1].SetBackgroundColour('#0000FF')
+            self._append_artists_to_combobox(art)
             self.SetLine(art[0])
             self.cb_artists.SetValue(self.cb_artists.GetItems()[0])
         else:
@@ -430,6 +427,17 @@ class ToolPanel(wx.Panel):
         else:
             self.btn_legend.SetValue(False)
             self.btn_legend.SetLabel('Generate legend')
+
+    def _append_artists_to_combobox(self, artists):
+        num = len(artists)
+        if num > 0:
+            for i, item in enumerate(artists):
+                if isinstance(item, valid_artists[ARTIST_PATH]):
+                    self.cb_artists.Append('PathCollection {}'.format(i))
+                elif isinstance(item, valid_artists[ARTIST_IMSHOW]):
+                    self.cb_artists.Append('Imshow {}'.format(i))
+                else:                    
+                    self.cb_artists.Append(item.__str__().split('(')[0]+' ['+item.get_color()+']')
         
 
     def on_hspan(self, xmin, xmax):
@@ -569,16 +577,29 @@ class ToolPanel(wx.Panel):
         wx.CallAfter(self.parent.canvas.draw)
 
 
+
+
+
     def set_color_path_collection(self, ax, artist, color):
         if not isinstance(artist, valid_artists[ARTIST_PATH]): return
         x = artist.get_offsets()[:,0] #extract xdata
         y = artist.get_offsets()[:,1] #extract ydata
+        current_sel = self.cb_artists.GetSelection()
+
+
         color_init=cmaps0[color](int(np.rint(white_level * 255)))
         col = cv.to_rgb(color)
         cmap = colors.LinearSegmentedColormap.from_list('', [color_init, col])
         n_points = np.linspace(0, 1, len(x))
         ax.scatter(x, y, c=n_points, lw=0, cmap=cmap)
         artist.remove()
+
+        ax = self.gca()
+        art, num = self._GetArtists(ax)
+        self.cb_artists.Clear()
+        if num > 0:
+            self._append_artists_to_combobox(art)
+        self.cb_artists.SetSelection(num-1)
         wx.CallAfter(self.parent.canvas.draw)
 
 
