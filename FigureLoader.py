@@ -586,7 +586,6 @@ class ToolPanel(wx.Panel):
         y = artist.get_offsets()[:,1] #extract ydata
         current_sel = self.cb_artists.GetSelection()
 
-
         color_init=cmaps0[color](int(np.rint(white_level * 255)))
         col = cv.to_rgb(color)
         cmap = colors.LinearSegmentedColormap.from_list('', [color_init, col])
@@ -594,12 +593,17 @@ class ToolPanel(wx.Panel):
         ax.scatter(x, y, c=n_points, lw=0, cmap=cmap)
         artist.remove()
 
+        #Make the order in the combobox correct again
+        cc = ax.collections[:-1]
+        cc.insert(current_sel, ax.collections[-1])
+        ax.collection = cc
+
         ax = self.gca()
         art, num = self._GetArtists(ax)
         self.cb_artists.Clear()
         if num > 0:
             self._append_artists_to_combobox(art)
-        self.cb_artists.SetSelection(num-1)
+        self.cb_artists.SetSelection(current_sel)
         wx.CallAfter(self.parent.canvas.draw)
 
 
