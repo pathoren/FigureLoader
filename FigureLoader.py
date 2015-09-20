@@ -705,8 +705,9 @@ class FigurePanel(wx.Panel):
             ii = np.logical_and(x > xmin, x < xmax)
             x = x[ii]
             y = y[ii]
-            if len(x) > 1:
-                coefs = poly.polyfit(x, y, 4)
+            degree = 4
+            if len(x) > degree:
+                coefs = poly.polyfit(x, y, degree)
                 yfit = poly.polyval(x, coefs)
                 self.toolpanel.gca().plot(x, yfit, '*')
                 wx.CallAfter(self.canvas.draw)
