@@ -11,6 +11,8 @@ from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg
 import matplotlib.pyplot as plt
 from matplotlib.widgets import SpanSelector
+from matplotlib.patches import Rectangle
+import numpy.polynomial.polynomial as poly
 # matplotlib.use('Qt4Agg')
 
 import matplotlib.colors as colors
@@ -287,10 +289,7 @@ class ToolPanel(wx.Panel):
 
         # self.btn_fitfunc = wx.ToggleButton(self, -1, 'Fit function')
         # self.sizer.Add(self.btn_fitfunc, **ADDICT_ITEM)
-        # self.Bind(wx.EVT_TOGGLEBUTTON, self.fit_func, self.btn_fitfunc)
-
-        self.cid_button_press_event = self.parent.canvas.figure.canvas.mpl_connect('button_press_event', self.mouse_click)
- 
+        # self.Bind(wx.EVT_TOGGLEBUTTON, self.fit_func, self.btn_fitfunc) 
 
         self._SetAxis(parent.canvas.figure.get_axes()[0])
         
@@ -478,15 +477,7 @@ class ToolPanel(wx.Panel):
             self.SetLine([], blank=True)
             self.cb_artists.SetValue('')
 
-    def mouse_click(self, event):
-        self.click_on_axis(event)
-        
-    def click_on_axis(self, event):
-
-        for i, ax in enumerate(self.parent.canvas.figure.get_axes()):
-            if event.inaxes == ax:
-                self._SetAxis(ax)
-                self.cb_axes.SetSelection(i)
+    
 
 
     def SetLine(self, artist, blank=False):
@@ -514,6 +505,16 @@ class ToolPanel(wx.Panel):
         return self.parent.canvas.figure.get_axes()[self.cb_axes.GetSelection()]
 
     def gca(self): return self.GetCurrentAxis()
+
+    def get_current_artist(self, artist_type = ARTIST_LINE2D):
+        cur_sel = self.cb_artists.GetSelection()
+        ax = self.gca()
+        art, num = self._GetArtists(ax)
+        cur_art = art[cur_sel] 
+        if isinstance(cur_art, valid_artists[artist_type]):
+            return cur_art
+        else: return None
+
 
     def SetLabelLineWidth(self, width):
         ax = self.gca()
@@ -666,12 +667,10 @@ class FigurePanel(wx.Panel):
 
         self.toolpanel = ToolPanel(self)
         self.shellpanel = ShellPanel(self)
-        
 
-        # self.s1 = wx.BoxSizer(wx.VERTICAL)
-        # self.s1.Add(self.canvas, 0, wx.GROW)
-        # self.s1.Add(self.tb, 0, wx.GROW)
-        # self.s1.Add(self.shellpanel, 1 , wx.EXPAND)
+        self.active_xspan = False
+
+
         self.s1 = wx.GridBagSizer(hgap=5, vgap=5)
         self.s1.Add(self.canvas, pos=(0,0), flag=wx.GROW)
         self.s1.Add(self.tb, pos=(1,0), flag=wx.GROW)
@@ -691,6 +690,64 @@ class FigurePanel(wx.Panel):
         self.Layout()
         self.Fit()
 
+        self.cid_button_press_event = self.canvas.mpl_connect('button_press_event', self.mouse_click)
+        self.cid_button_release_event = self.canvas.mpl_connect('button_release_event', self.mouse_release)
+        self.cid_button_motion_event = self.canvas.mpl_connect('motion_notify_event', self.mouse_motion)
+
+    def mouse_release(self, event):
+        print 'release', event.xdata, event.ydata
+        self.active_xspan = False
+
+    def fit_line(self, xmin, xmax):
+        cur_art = self.toolpanel.get_current_artist()
+        if not cur_art == None:
+            x, y = cur_art.get_xdata(), cur_art.get_ydata()
+            ii = np.logical_and(x > xmin, x < xmax)
+            x = x[ii]
+            y = y[ii]
+            if len(x) > 1:
+                coefs = poly.polyfit(x, y, 4)
+                yfit = poly.polyval(x, coefs)
+                self.toolpanel.gca().plot(x, yfit, '*')
+                wx.CallAfter(self.canvas.draw)
+
+
+
+    def mouse_motion(self, event):
+        if self.active_xspan:
+            x = event.xdata
+            new_width = x - self.xstart
+            self.rect.set_width(new_width)
+            self.fit_line(self.xstart, x)
+            wx.CallAfter(self.canvas.draw)
+
+    def click_for_xspan(self, event):
+        if hasattr(self, 'rect'):
+            self.rect.remove()
+        self.active_xspan = True
+        self.xstart = event.xdata
+        ax = self.toolpanel.gca()
+        ymin = ax.get_ylim()[0]
+        yspan = ax.get_ylim()[1] - ax.get_ylim()[0]
+        self.rect = ax.add_patch(Rectangle((event.xdata, ymin), 0, yspan))
+        self.rect.set_alpha(0.3)
+        self.rect.set_linewidth(0)
+        wx.CallAfter(self.canvas.draw)
+
+    def mouse_click(self, event):
+        if event.button == 1:
+            self.click_on_axis(event)
+        elif event.button == 3:
+            self.click_for_xspan(event)
+        
+    def click_on_axis(self, event):
+
+        for i, ax in enumerate(self.canvas.figure.get_axes()):
+            if event.inaxes == ax:
+                self.toolpanel._SetAxis(ax)
+                self.toolpanel.cb_axes.SetSelection(i)
+
+
     def LoadFigure(self, filepath):
         self.canvas.figure.clf()
         with open(filepath, 'rb') as fil:
@@ -703,7 +760,9 @@ class FigurePanel(wx.Panel):
         self.tb.Realize()
         self.s1.Add(self.canvas, pos=(0,0), flag=wx.GROW)
         self.s1.Add(self.tb, pos=(1,0), flag=wx.GROW)
-        self.canvas.figure.canvas.mpl_connect('button_press_event', self.toolpanel.mouse_click)
+        self.cid_button_press_event = self.canvas.mpl_connect('button_press_event', self.mouse_click)
+        self.cid_button_release_event = self.canvas.mpl_connect('button_release_event', self.mouse_release)
+        self.cid_button_motion_event = self.canvas.mpl_connect('motion_notify_event', self.mouse_motion)
         self.toolpanel._SetAxis(self.canvas.figure.get_axes()[0])
 
         self.toolpanel.UpdateAxesList(figure)
@@ -748,6 +807,8 @@ class FigureFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnOpen, id=ID_OPEN)
         self.Bind(wx.EVT_MENU, self.OnSave, id=ID_SAVE)
         self.Bind(wx.EVT_MENU, self.OnQuit, id=ID_QUIT)
+
+
 
 
     def OnOpen(self, event):
