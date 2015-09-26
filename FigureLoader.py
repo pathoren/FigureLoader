@@ -695,12 +695,12 @@ class FigurePanel(wx.Panel):
         self.cid_button_motion_event = self.canvas.mpl_connect('motion_notify_event', self.mouse_motion)
 
     def mouse_release(self, event):
-        print 'release', event.xdata, event.ydata
         self.active_xspan = False
 
     def fit_line(self, xmin, xmax):
         cur_art = self.toolpanel.get_current_artist()
         if not cur_art == None:
+            if xmin>xmax: xmin, xmax = xmax, xmin
             x, y = cur_art.get_xdata(), cur_art.get_ydata()
             ii = np.logical_and(x > xmin, x < xmax)
             x = x[ii]
@@ -708,8 +708,16 @@ class FigurePanel(wx.Panel):
             degree = 4
             if len(x) > degree:
                 coefs = poly.polyfit(x, y, degree)
-                yfit = poly.polyval(x, coefs)
-                self.toolpanel.gca().plot(x, yfit, '*')
+                (xmi, xma) = self.toolpanel.gca().get_xlim()
+                xfit = np.linspace(xmi, xma, 100)
+                yfit = poly.polyval(xfit, coefs)
+                ax_sel = self.toolpanel.cb_axes.GetSelection()
+                if self.fit_lines[ax_sel] is None:
+                    line, = self.toolpanel.gca().plot(xfit, yfit, 'k--')
+                    self.fit_lines[ax_sel] = line
+                else:
+                    self.fit_lines[ax_sel].set_ydata(yfit)
+
                 wx.CallAfter(self.canvas.draw)
 
 
@@ -736,9 +744,10 @@ class FigurePanel(wx.Panel):
         wx.CallAfter(self.canvas.draw)
 
     def mouse_click(self, event):
-        if event.button == 1:
+        ax = self.toolpanel.gca()
+        if not event.inaxes == ax:
             self.click_on_axis(event)
-        elif event.button == 3:
+        if event.button == 3:
             self.click_for_xspan(event)
         
     def click_on_axis(self, event):
@@ -750,7 +759,11 @@ class FigurePanel(wx.Panel):
 
 
     def LoadFigure(self, filepath):
+        if hasattr(self, 'fit_lines'):
+            for line in self.fit_lines: 
+                if not line is None: line.remove()
         self.canvas.figure.clf()
+
         with open(filepath, 'rb') as fil:
             figure = pickle.load(fil)
 
@@ -766,6 +779,7 @@ class FigurePanel(wx.Panel):
         self.cid_button_motion_event = self.canvas.mpl_connect('motion_notify_event', self.mouse_motion)
         self.toolpanel._SetAxis(self.canvas.figure.get_axes()[0])
 
+        self.fit_lines = [None]*len(self.canvas.figure.get_axes())
         self.toolpanel.UpdateAxesList(figure)
         self.toolpanel.UpdateFigureSize(figure)
         cmd = 'fig = frame.panel.canvas.figure'
