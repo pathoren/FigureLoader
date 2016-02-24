@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import SpanSelector
 from matplotlib.patches import Rectangle
 import numpy.polynomial.polynomial as poly
+from ScriptInterface import ScriptPanel
+
 # matplotlib.use('Qt4Agg')
 
 import matplotlib.colors as colors
@@ -270,6 +272,24 @@ class ToolPanel(wx.Panel):
         self.cb_legend_pos.SetSelection(0)
         gridsizer.Add(wx.StaticText(self, -1, '  Legend pos: '), **ADDICT_TEXT)
         gridsizer.Add(self.cb_legend_pos, **ADDICT_ITEM)
+
+        gridsizer.Add(wx.StaticText(self, -1, ' '), **ADDICT_TEXT)
+        gridsizer.Add(wx.StaticText(self, -1, ' '), **ADDICT_TEXT)
+        gridsizer.Add(wx.StaticText(self, -1, ' ANALYSIS TOOLS: '), **ADDICT_TEXT)
+        gridsizer.Add(wx.StaticText(self, -1, ' '), **ADDICT_TEXT)
+
+        
+        self.spin_poly = wx.SpinCtrl(self, -1, size=wx.Size(40, -1), min=0, max=15)
+        gridsizer.Add(wx.StaticText(self, -1, '  Deg: '), **ADDICT_TEXT)
+        gridsizer.Add(self.spin_poly, **ADDICT_ITEM)
+        self.spin_poly.SetValue(2)
+
+        self.txt_coef = wx.TextCtrl(self, -1, '')
+        gridsizer.Add(wx.StaticText(self, -1, '  Poly: '), **ADDICT_TEXT)
+        gridsizer.Add(self.txt_coef, **ADDICT_ITEM)
+
+
+
 
         
         self.sizer = wx.BoxSizer(wx.VERTICAL)
@@ -657,6 +677,7 @@ class FigurePanel(wx.Panel):
         wx.Panel.__init__(self, parent)
         self.parent = parent
         self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.filepath = None
         
         # self.LoadFigure(filepath)
         figure, ax=plt.subplots()
@@ -665,8 +686,9 @@ class FigurePanel(wx.Panel):
         self.tb = Toolbar(self.canvas)
         self.tb.Realize()
 
-        self.toolpanel = ToolPanel(self)
-        self.shellpanel = ShellPanel(self)
+        self.toolpanel   = ToolPanel(self)
+        self.shellpanel  = ShellPanel(self)
+        self.scriptpanel = ScriptPanel(self)
 
         self.active_xspan = False
 
@@ -675,9 +697,13 @@ class FigurePanel(wx.Panel):
         self.s1.Add(self.canvas, pos=(0,0), flag=wx.GROW)
         self.s1.Add(self.tb, pos=(1,0), flag=wx.GROW)
 
+        bottomszr = wx.BoxSizer(wx.HORIZONTAL)
+        bottomszr.Add(self.shellpanel, 1, wx.GROW)
+        bottomszr.Add(self.scriptpanel, 1, wx.GROW)
+
         bs1 = wx.BoxSizer(wx.VERTICAL)
         bs1.Add(self.s1, 0, wx.GROW)
-        bs1.Add(self.shellpanel, 1, wx.GROW)
+        bs1.Add(bottomszr, 1, wx.GROW)
 
         s2 = wx.BoxSizer(wx.HORIZONTAL)
         s2.Add(bs1, 1, wx.GROW)
@@ -693,6 +719,56 @@ class FigurePanel(wx.Panel):
         self.cid_button_press_event = self.canvas.mpl_connect('button_press_event', self.mouse_click)
         self.cid_button_release_event = self.canvas.mpl_connect('button_release_event', self.mouse_release)
         self.cid_button_motion_event = self.canvas.mpl_connect('motion_notify_event', self.mouse_motion)
+
+        self.Bind(wx.EVT_BUTTON, self.on_save, self.scriptpanel.btn_save)
+        self.Bind(wx.EVT_BUTTON, self.on_load, self.scriptpanel.btn_load)
+        self.Bind(wx.EVT_BUTTON, self.on_run,  self.scriptpanel.btn_run)
+        self.Bind(wx.EVT_BUTTON, self.on_reload,  self.scriptpanel.btn_reload)
+
+    def on_reload(self, evt):
+        self.LoadFigure(filepath=None, reload_fig=True)
+        
+    def on_save(self, evt):
+        # Fetch the required filename and file type.
+        filetypes = "Script files (*.s;*.script)|*.s;*.script|All files (*.*)|*.*"
+        default_file = 'scriptfile2.s'
+        dlg = wx.FileDialog(self, "Save to file", "", default_file,
+                            filetypes,
+                            wx.SAVE|wx.OVERWRITE_PROMPT)
+        # dlg.SetFilterIndex(filter_index)
+        if dlg.ShowModal() == wx.ID_OK:
+            dirname  = dlg.GetDirectory()
+            filename = dlg.GetFilename()
+            try:
+                text_file = open(filename, "w")
+                text_file.write(self.scriptpanel.ed.GetText())
+                text_file.close()
+            except Exception as e:
+                # error_msg_wx(str(e))
+                print e
+    
+    def on_load(self, evt):
+        dlg = wx.FileDialog(self, "Open script file", "", "",
+                                  "Script files (*.s;*.script)|*.s;*.script|All files (*.*)|*.*", 
+                                  wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
+        result = dlg.ShowModal()
+        if result == wx.ID_CANCEL:
+            return
+
+        path = dlg.GetPath()
+        text_file = open(path, 'r')
+        self.scriptpanel.ed.SetText(text_file.read())
+        text_file.close()
+    
+    def on_run(self, evt):
+        code = self.scriptpanel.ed.GetText()
+        self.shellpanel.shell.Execute(code)
+        # try:
+        #     exec(code)
+        # except Exception, e:
+        #     import traceback
+        #     print traceback.print_tb(e.__traceback__)
+            
 
     def mouse_release(self, event):
         self.active_xspan = False
@@ -758,13 +834,19 @@ class FigurePanel(wx.Panel):
                 self.toolpanel.cb_axes.SetSelection(i)
 
 
-    def LoadFigure(self, filepath):
+    def LoadFigure(self, filepath, reload_fig=False):
+        if reload_fig and self.filepath == None:
+            print 'No figure file loaded.  Load a figure.' 
+            return
+        if not reload_fig:
+            self.filepath = filepath
+
         if hasattr(self, 'fit_lines'):
             for line in self.fit_lines: 
                 if not line is None: line.remove()
         self.canvas.figure.clf()
 
-        with open(filepath, 'rb') as fil:
+        with open(self.filepath, 'rb') as fil:
             figure = pickle.load(fil)
 
         self.tb.Destroy()
