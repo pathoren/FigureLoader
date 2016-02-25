@@ -904,8 +904,17 @@ class FigureFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnOpen, id=ID_OPEN)
         self.Bind(wx.EVT_MENU, self.OnSave, id=ID_SAVE)
         self.Bind(wx.EVT_MENU, self.OnQuit, id=ID_QUIT)
+        self.Bind(wx.EVT_CLOSE, self.OnQuit)
 
 
+
+    def OnQuit(self, event):
+        dlg = wx.MessageDialog(self, 'Are you sure you want to quit?', 'Closing', wx.YES_NO | wx.ICON_QUESTION)
+        result = dlg.ShowModal()
+        if result == wx.ID_YES:
+            # self.Destroy()
+            print 'Exiting program.'
+            sys.exit()
 
 
     def OnOpen(self, event):
@@ -948,11 +957,6 @@ class FigureFrame(wx.Frame):
                 # error_msg_wx(str(e))
                 print e
 
-    def OnQuit(self, event):
-        dlg = wx.MessageDialog(self, 'Are you sure you want to quit?', 'Closing', wx.YES_NO | wx.ICON_QUESTION)
-        result = dlg.ShowModal()
-        if result == wx.ID_YES:
-            self.Destroy()
 
     def gca(self):
         return self.panel.toolpanel.gca()
