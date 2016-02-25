@@ -164,8 +164,8 @@ class ToolPanel(wx.Panel):
         (self.screen_x, self.screen_y) = int(self.screen_x/10./2.54), int(self.screen_y/10./2.54) # scale to inches
         self.spin_x = wx.SpinCtrl(self, -1, size=wx.Size(40, -1), min=1, max=self.screen_x)
         self.spin_y = wx.SpinCtrl(self, -1, size=wx.Size(40, -1), min=1, max=self.screen_y)
-        self.Bind(wx.EVT_SPINCTRL, self.OnSizeSpinner, self.spin_x)
-        self.Bind(wx.EVT_SPINCTRL, self.OnSizeSpinner, self.spin_y)
+        self.Bind(wx.EVT_SPINCTRL, self.on_size_spinner, self.spin_x)
+        self.Bind(wx.EVT_SPINCTRL, self.on_size_spinner, self.spin_y)
 
         szr = wx.BoxSizer(wx.HORIZONTAL)
         szr.Add(self.spin_x, 1, wx.GROW)
@@ -182,7 +182,7 @@ class ToolPanel(wx.Panel):
             choices.append('Axis ({}, {})'.format(i/a.numCols, i%a.numCols))  
         self.cb_axes = wx.ComboBox(self, id=-1, choices=choices)
         self.cb_axes.SetSelection(0)
-        self.Bind(wx.EVT_COMBOBOX, self.OnAxes, self.cb_axes)
+        self.Bind(wx.EVT_COMBOBOX, self.on_axes, self.cb_axes)
         gridsizer.Add(wx.StaticText(self, -1, '  Axis: '), **ADDICT_TEXT)
         gridsizer.Add(self.cb_axes, **ADDICT_ITEM)
 
@@ -234,11 +234,11 @@ class ToolPanel(wx.Panel):
 
         # Combobox for artists
         choices = []
-        for i, art in enumerate(self._GetArtists(parent.canvas.figure.get_axes()[0])[0]):
+        for i, art in enumerate(self._get_artists(parent.canvas.figure.get_axes()[0])[0]):
             choices.append(art.__str__())  
         self.cb_artists = wx.ComboBox(self, id=-1, choices=choices)
         self.cb_artists.SetSelection(0)
-        self.Bind(wx.EVT_COMBOBOX, self.OnArtists, self.cb_artists)
+        self.Bind(wx.EVT_COMBOBOX, self.on_artists, self.cb_artists)
         gridsizer.Add(wx.StaticText(self, -1, '  Artist: '), **ADDICT_TEXT)
         gridsizer.Add(self.cb_artists, **ADDICT_ITEM)
 
@@ -246,7 +246,7 @@ class ToolPanel(wx.Panel):
         self.txt_color = wx.TextCtrl(self, -1, '')
         gridsizer.Add(wx.StaticText(self, -1, '  Color: '), **ADDICT_TEXT)
         gridsizer.Add(self.txt_color, **ADDICT_ITEM)
-        self._SetColorTooltip(artist_id=ARTIST_LINE2D)
+        self._set_color_tooltip(artist_id=ARTIST_LINE2D)
 
         choices = ['-', '--', '-.', ':']
         self.cb_artiststyle = wx.ComboBox(self, id=-1, choices=choices)
@@ -297,21 +297,21 @@ class ToolPanel(wx.Panel):
 
         self.btn_update = wx.Button(self, -1, 'Update')
         self.sizer.Add(self.btn_update, **ADDICT_ITEM)
-        self.Bind(wx.EVT_BUTTON, self.Update, self.btn_update)
+        self.Bind(wx.EVT_BUTTON, self.update, self.btn_update)
 
         self.btn_tight_layout = wx.Button(self, -1, 'Tight layout')
         self.sizer.Add(self.btn_tight_layout, **ADDICT_ITEM)
-        self.Bind(wx.EVT_BUTTON, self.TightLayout, self.btn_tight_layout)
+        self.Bind(wx.EVT_BUTTON, self.tight_layout, self.btn_tight_layout)
 
         self.btn_legend = wx.ToggleButton(self, -1, 'Generate legend')
         self.sizer.Add(self.btn_legend, **ADDICT_ITEM)
-        self.Bind(wx.EVT_TOGGLEBUTTON, self.GenerateLegend, self.btn_legend)
+        self.Bind(wx.EVT_TOGGLEBUTTON, self.generate_legend, self.btn_legend)
 
         # self.btn_fitfunc = wx.ToggleButton(self, -1, 'Fit function')
         # self.sizer.Add(self.btn_fitfunc, **ADDICT_ITEM)
         # self.Bind(wx.EVT_TOGGLEBUTTON, self.fit_func, self.btn_fitfunc) 
 
-        self._SetAxis(parent.canvas.figure.get_axes()[0])
+        self._set_axis(parent.canvas.figure.get_axes()[0])
         
         self.SetSizer(self.sizer)
         self.Layout()
@@ -320,28 +320,28 @@ class ToolPanel(wx.Panel):
 
 
 
-    def UpdateFigureSize(self, fig):
+    def update_figure_size(self, fig):
         (x, y) = fig.get_size_inches()
         self.dpi = fig.get_dpi()
         # x_pix, y_pix = x*self.dpi, y*self.dpi
         self.spin_x.SetValue(x)
         self.spin_y.SetValue(y)
 
-    def OnSizeSpinner(self, event):
+    def on_size_spinner(self, event):
         x, y = self.spin_x.GetValue()*self.dpi, self.spin_y.GetValue()*self.dpi
         self.parent.canvas.SetMinSize(wx.Size(x, y))
         self.Fit()
         self.parent.Fit()
         self.parent.parent.Fit()
 
-    def _HasLegend(self, ax):
+    def _has_legend(self, ax):
         if type(ax.get_legend()) != type(None):
             return True
         else: return False
 
-    def GenerateLegend(self, event):
+    def generate_legend(self, event):
         ax = self.parent.canvas.figure.get_axes()[self.cb_axes.GetSelection()]
-        if self._HasLegend(ax):
+        if self._has_legend(ax):
             ax.get_legend().remove()
             self.btn_legend.SetLabel('Generate legend')
             self.btn_legend.SetValue(False)
@@ -356,7 +356,7 @@ class ToolPanel(wx.Panel):
 
 
 
-    def _GetArtists(self, ax):
+    def _get_artists(self, ax):
         
         children = ax.get_children()
         artists = []
@@ -366,7 +366,7 @@ class ToolPanel(wx.Panel):
                     artists.append(child)
         return artists, len(artists)
 
-    def _SetColorTooltip(self, artist_id):
+    def _set_color_tooltip(self, artist_id):
         if artist_id in [ARTIST_LINE2D, ARTIST_PATH]:
             self.txt_color.SetToolTip(wx.ToolTip('Please use standard matplotlib colors [b, r, g, y, m, c, k],  #hex colors or grayscale (0-1).'))
         elif artist_id == ARTIST_IMSHOW:
@@ -391,9 +391,9 @@ class ToolPanel(wx.Panel):
         
 
 
-    def _SetArtist(self, artist):
+    def _set_artist(self, artist):
         if isinstance(artist, valid_artists[ARTIST_PATH]):
-            self._SetColorTooltip(ARTIST_PATH)
+            self._set_color_tooltip(ARTIST_PATH)
             rgb = self.get_rgb_from_artist(artist)
             color = self.extract_matplotlibcolor_from_rgb(rgb)
             self.txt_color.SetValue(color)
@@ -402,21 +402,21 @@ class ToolPanel(wx.Panel):
             self.txt_color.SetValue(artist.get_color())
             self.cb_marker.SetValue(artist.get_marker())
             self.cb_artiststyle.SetValue(artist.get_linestyle())
-            self._SetColorTooltip(ARTIST_LINE2D)
+            self._set_color_tooltip(ARTIST_LINE2D)
             self.txt_name.SetValue(artist.get_label())
             
         elif isinstance(artist, valid_artists[ARTIST_IMSHOW]):
             self.txt_color.SetValue(artist.get_cmap().name)
             self.cb_marker.SetValue('')
             self.cb_artiststyle.SetValue('')
-            self._SetColorTooltip(ARTIST_IMSHOW)
+            self._set_color_tooltip(ARTIST_IMSHOW)
         else:
             print 'Unknown artist.'
 
 
 
 
-    def _SetAxis(self, ax):
+    def _set_axis(self, ax):
 
         self.txt_xlabel.SetValue(ax.get_xlabel())
         self.txt_ylabel.SetValue(ax.get_ylabel())
@@ -430,17 +430,17 @@ class ToolPanel(wx.Panel):
         self.txt_xlims.SetValue(xlim_str)
         self.txt_ylims.SetValue(ylim_str)
 
-        art, num = self._GetArtists(ax)
+        art, num = self._get_artists(ax)
         self.cb_artists.Clear()
         if num > 0:
             self._append_artists_to_combobox(art)
-            self.SetLine(art[0])
+            self.set_line(art[0])
             self.cb_artists.SetValue(self.cb_artists.GetItems()[0])
         else:
-            self.SetLine([], blank=True)
+            self.set_line([], blank=True)
             self.cb_artists.SetValue('')
 
-        if self._HasLegend(ax):
+        if self._has_legend(ax):
             self.btn_legend.SetValue(True)
             self.btn_legend.SetLabel('Remove legend')
         else:
@@ -466,7 +466,7 @@ class ToolPanel(wx.Panel):
         
 
     def fit_func(self, event):
-        ax = self.GetCurrentAxis()
+        ax = self.get_current_axis()
         # self.parent.canvas.figure.canvas.mpl_disconnect(self.cid_button_press_event)
         # self.hspan_sel = MySpanSelector(ax, self.on_hspan, 'horizontal', rectprops=dict(facecolor='red',alpha=0.3))
         # self.hspan_sel.activate_hspan(self.on_hspan)
@@ -475,68 +475,68 @@ class ToolPanel(wx.Panel):
 
 
 
-    def UpdateAxesList(self, fig):
+    def update_axes_list(self, fig):
         self.cb_axes.Clear()
         for i, a in enumerate(fig.get_axes()):
             self.cb_axes.Append('Axis ({}, {})'.format(i/a.numCols, i%a.numCols))
         self.cb_axes.SetSelection(0)
 
 
-    def OnAxes(self, event):
+    def on_axes(self, event):
         ax = self.parent.canvas.figure.get_axes()[self.cb_axes.GetSelection()]
-        self._SetAxis(ax)
+        self._set_axis(ax)
 
         self.cb_artists.Clear()
-        art, num = self._GetArtists(ax)
+        art, num = self._get_artists(ax)
         if num > 0:
             for item in art:
                 self.cb_artists.Append(item.__str__()) 
-            self.SetLine(art[0])
+            self.set_line(art[0])
             self.cb_artists.SetValue(art.__str__())
         else:
-            self.SetLine([], blank=True)
+            self.set_line([], blank=True)
             self.cb_artists.SetValue('')
 
     
 
 
-    def SetLine(self, artist, blank=False):
+    def set_line(self, artist, blank=False):
         if not blank:
-            self._SetArtist(artist)
+            self._set_artist(artist)
         else:
             self.txt_color.SetValue('')
             self.cb_artiststyle.SetStringSelection('')
             self.cb_marker.SetStringSelection('')
         self.cb_artists.SetSelection(0)
             
-    def OnArtists(self, event):
+    def on_artists(self, event):
         line_nr = self.cb_artists.GetSelection()
         ax_nr = self.cb_axes.GetSelection()
         ax = self.parent.canvas.figure.get_axes()[ax_nr]
-        art, num = self._GetArtists(ax)
+        art, num = self._get_artists(ax)
         artist = art[line_nr]
-        self._SetArtist(artist)
+        self._set_artist(artist)
 
-    def TightLayout(self, event):
+    def tight_layout(self, event):
         self.parent.canvas.figure.tight_layout()
         wx.CallAfter(self.parent.canvas.draw)
 
-    def GetCurrentAxis(self):
+    def get_current_axis(self):
         return self.parent.canvas.figure.get_axes()[self.cb_axes.GetSelection()]
 
-    def gca(self): return self.GetCurrentAxis()
+    def gca(self): return self.get_current_axis()
 
     def get_current_artist(self, artist_type = ARTIST_LINE2D):
         cur_sel = self.cb_artists.GetSelection()
         ax = self.gca()
-        art, num = self._GetArtists(ax)
+        art, num = self._get_artists(ax)
         cur_art = art[cur_sel] 
         if isinstance(cur_art, valid_artists[artist_type]):
             return cur_art
         else: return None
 
 
-    def SetLabelLineWidth(self, width):
+    def set_label_line_width(self, width):
         ax = self.gca()
         leg = ax.get_legend()
         if not isinstance( leg, type(None) ):
@@ -544,7 +544,7 @@ class ToolPanel(wx.Panel):
                 line.set_linewidth(width)
             self.parent.canvas.draw()
 
-    def Update(self, event):
+    def update(self, event):
         ax = self.parent.canvas.figure.get_axes()[self.cb_axes.GetSelection()]
         ax.set_xscale(self.cb_xscale.GetStringSelection())
         ax.set_yscale(self.cb_yscale.GetStringSelection())
@@ -571,7 +571,7 @@ class ToolPanel(wx.Panel):
 
         sel = self.cb_artists.GetSelection()
         try:
-            artist, num = self._GetArtists(ax)
+            artist, num = self._get_artists(ax)
             artist=artist[sel]
         except IndexError: 
             return
@@ -583,7 +583,7 @@ class ToolPanel(wx.Panel):
             print 'implement this'
         elif isinstance(artist, valid_artists[ARTIST_LINE2D]):
             col = self.txt_color.GetValue()
-            if self.ValidateColor(col):
+            if self.validate_color(col):
                 artist.set_color(col)
             artist.set_linestyle(self.cb_artiststyle.GetValue())
             artist.set_marker(self.cb_marker.GetStringSelection())
@@ -591,7 +591,7 @@ class ToolPanel(wx.Panel):
 
         elif isinstance(artist, valid_artists[ARTIST_IMSHOW]):
             cmap = self.txt_color.GetValue()
-            if self._ValidColormap(cmap):
+            if self._valid_colormap(cmap):
                 artist.set_cmap(cmap)
         else:
             print 'Not valid artist.'
@@ -620,7 +620,7 @@ class ToolPanel(wx.Panel):
         ax.collection = cc
 
         ax = self.gca()
-        art, num = self._GetArtists(ax)
+        art, num = self._get_artists(ax)
         self.cb_artists.Clear()
         if num > 0:
             self._append_artists_to_combobox(art)
@@ -628,7 +628,7 @@ class ToolPanel(wx.Panel):
         wx.CallAfter(self.parent.canvas.draw)
 
 
-    def _ValidColormap(self, cmap):
+    def _valid_colormap(self, cmap):
         if cmap in valid_cmaps: return True
         else: return False
 
@@ -637,7 +637,7 @@ class ToolPanel(wx.Panel):
             return True
         return False
 
-    def ValidateColor(self, c):
+    def validate_color(self, c):
         if c.isalpha():
             return self.validate_letter_color(c)
         if re.search(r'^#(?:[0-9a-fA-F]{3}){1,2}$', c): #valid hex code?
@@ -679,7 +679,7 @@ class FigurePanel(wx.Panel):
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.filepath = None
         
-        # self.LoadFigure(filepath)
+        # self.load_figure(filepath)
         figure, ax=plt.subplots()
         self.fig_loadsize_inches = figure.get_size_inches()
         self.canvas = FigureCanvas(self, -1, figure)
@@ -726,7 +726,7 @@ class FigurePanel(wx.Panel):
         self.Bind(wx.EVT_BUTTON, self.on_reload,  self.scriptpanel.btn_reload)
 
     def on_reload(self, evt):
-        self.LoadFigure(filepath=None, reload_fig=True)
+        self.load_figure(filepath=None, reload_fig=True)
         
     def on_save(self, evt):
         # Fetch the required filename and file type.
@@ -830,11 +830,11 @@ class FigurePanel(wx.Panel):
 
         for i, ax in enumerate(self.canvas.figure.get_axes()):
             if event.inaxes == ax:
-                self.toolpanel._SetAxis(ax)
+                self.toolpanel._set_axis(ax)
                 self.toolpanel.cb_axes.SetSelection(i)
 
 
-    def LoadFigure(self, filepath, reload_fig=False):
+    def load_figure(self, filepath, reload_fig=False):
         if reload_fig and self.filepath == None:
             print 'No figure file loaded.  Load a figure.' 
             return
@@ -859,11 +859,11 @@ class FigurePanel(wx.Panel):
         self.cid_button_press_event = self.canvas.mpl_connect('button_press_event', self.mouse_click)
         self.cid_button_release_event = self.canvas.mpl_connect('button_release_event', self.mouse_release)
         self.cid_button_motion_event = self.canvas.mpl_connect('motion_notify_event', self.mouse_motion)
-        self.toolpanel._SetAxis(self.canvas.figure.get_axes()[0])
+        self.toolpanel._set_axis(self.canvas.figure.get_axes()[0])
 
         self.fit_lines = [None]*len(self.canvas.figure.get_axes())
-        self.toolpanel.UpdateAxesList(figure)
-        self.toolpanel.UpdateFigureSize(figure)
+        self.toolpanel.update_axes_list(figure)
+        self.toolpanel.update_figure_size(figure)
         cmd = 'fig = frame.panel.canvas.figure'
         frame.panel.shellpanel.shell.run(cmd)
 
@@ -901,14 +901,14 @@ class FigureFrame(wx.Frame):
         menu_bar.Append(file_menu, '&File')
         self.SetMenuBar(menu_bar)
 
-        self.Bind(wx.EVT_MENU, self.OnOpen, id=ID_OPEN)
-        self.Bind(wx.EVT_MENU, self.OnSave, id=ID_SAVE)
-        self.Bind(wx.EVT_MENU, self.OnQuit, id=ID_QUIT)
-        self.Bind(wx.EVT_CLOSE, self.OnQuit)
+        self.Bind(wx.EVT_MENU, self.on_open, id=ID_OPEN)
+        self.Bind(wx.EVT_MENU, self.on_save, id=ID_SAVE)
+        self.Bind(wx.EVT_MENU, self.on_quit, id=ID_QUIT)
+        self.Bind(wx.EVT_CLOSE, self.on_quit)
 
 
 
-    def OnQuit(self, event):
+    def on_quit(self, event):
         dlg = wx.MessageDialog(self, 'Are you sure you want to quit?', 'Closing', wx.YES_NO | wx.ICON_QUESTION)
         result = dlg.ShowModal()
         if result == wx.ID_YES:
@@ -917,7 +917,7 @@ class FigureFrame(wx.Frame):
             sys.exit()
 
 
-    def OnOpen(self, event):
+    def on_open(self, event):
         dlg = wx.FileDialog(self, "Open figure file", "", "",
                                        "Pickle files (*.p;*.pickle)|*.p;*.pickle|All files (*.*)|*.*", wx.FD_OPEN | wx.FD_FILE_MUST_EXIST)
 
@@ -926,10 +926,10 @@ class FigureFrame(wx.Frame):
             return
 
         path = dlg.GetPath()
-        self.panel.LoadFigure(path)
+        self.panel.load_figure(path)
         wx.CallAfter(self.panel.canvas.draw)
 
-    def OnSave(self, event):
+    def on_save(self, event):
         # Fetch the required filename and file type.
         filetypes, exts, filter_index = self.panel.canvas._get_imagesave_wildcards()
         default_file = self.panel.canvas.get_default_filename()
@@ -961,8 +961,8 @@ class FigureFrame(wx.Frame):
     def gca(self):
         return self.panel.toolpanel.gca()
 
-    def SetLabelLineWidth(self, width):
-        self.panel.toolpanel.SetLabelLineWidth(width)
+    def set_label_line_width(self, width):
+        self.panel.toolpanel.set_label_line_width(width)
 
 
 
@@ -1070,7 +1070,7 @@ if __name__ == "__main__":
     frame.Show()
     try:
         if os.environ['COMPUTERNAME'] == 'OBIWAN':
-            frame.panel.LoadFigure('test5.p')
+            frame.panel.load_figure('test5.p')
             wx.CallAfter(frame.panel.canvas.draw)
     except KeyError:
         pass
